@@ -13,22 +13,6 @@
     { 
       "source": "/auth/:path*", 
       "destination": "/backend/server.js" 
-    },
-    {
-      "source": "/privacy-policy",
-      "destination": "/insta-repost-web/public/privacy-policy.html"
-    },
-    {
-      "source": "/terms-of-service",
-      "destination": "/insta-repost-web/public/terms-of-service.html"
-    },
-    {
-      "source": "/pp",
-      "destination": "/insta-repost-web/public/pp.html"
-    },
-    {
-      "source": "/tos",
-      "destination": "/insta-repost-web/public/tos.html"
     }
   ],"env": {
     "INSTAGRAM_CLIENT_ID": "1842291649888953",
