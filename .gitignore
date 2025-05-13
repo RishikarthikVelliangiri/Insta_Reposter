@@ -8,6 +8,14 @@
 **/.env.*
 !**/.env.example
 
+# Session files and tokens
+*_session.json
+**/*_session.json
+*.session
+**/token.json
+**/oauth_token.json
+**/instagram_oauth.json
+
 # Python virtual environment
 venv/
 __pycache__/
