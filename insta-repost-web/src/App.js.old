@@ -1,0 +1,490 @@
+import React, { useState, useEffect } from 'react';
+import './App.css';
+import axios from 'axios';
+
+// Material UI imports
+import { 
+  TextField, 
+  Button, 
+  Container, 
+  Typography, 
+  Box, 
+  Paper, 
+  CircularProgress, 
+  Alert, 
+  Snackbar
+} from '@mui/material';
+import { keyframes } from '@mui/system';
+import InstagramIcon from '@mui/icons-material/Instagram';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import YouTubeIcon from '@mui/icons-material/YouTube';
+
+// Simple animation for loading dots
+const ellipsis = keyframes`
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.8; }
+`;
+
+function App() {
+  const [url, setUrl] = useState('');
+  const [caption, setCaption] = useState('');
+  const [hashtags, setHashtags] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [jobId, setJobId] = useState(null);
+  const [jobStatus, setJobStatus] = useState(null);
+  const [error, setError] = useState(null);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [cooldownActive, setCooldownActive] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+
+  // Cooldown timer effect
+  useEffect(() => {
+    if (!cooldownActive) return;
+    
+    const cooldownTimer = setInterval(() => {
+      setCooldownRemaining(prevTime => {
+        if (prevTime <= 1) {
+          clearInterval(cooldownTimer);
+          setCooldownActive(false);
+          return 0;
+        }
+        return prevTime - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(cooldownTimer);
+  }, [cooldownActive]);
+
+  // Monitor job status
+  useEffect(() => {
+    if (!jobId) return;
+    
+    const statusInterval = setInterval(async () => {
+      try {
+        const response = await axios.get(`http://localhost:5000/api/status/${jobId}`);
+        const data = response.data;
+        
+        if (data.success) {
+          setJobStatus(data.jobStatus);
+          
+          // Stop polling if job is completed
+          if (data.jobStatus.completed) {
+            clearInterval(statusInterval);
+            setIsSubmitting(false);
+            
+            // Show success notification
+            if (data.jobStatus.success) {
+              setOpenSnackbar(true);
+              
+              // Start cooldown timer if successful
+              setCooldownActive(true);
+              setCooldownRemaining(60);
+            }
+          }
+        } else {
+          setError(data.error || 'Failed to check job status');
+          clearInterval(statusInterval);
+          setIsSubmitting(false);
+        }
+      } catch (err) {
+        setError('Server error while checking status');
+        clearInterval(statusInterval);
+        setIsSubmitting(false);
+      }
+    }, 1000); // Poll every second
+    
+    return () => clearInterval(statusInterval);
+  }, [jobId]);
+  
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    const isInstagramUrl = url.includes('instagram.com');
+    const isYoutubeShorts = url.includes('youtube.com/shorts') || url.includes('youtu.be');
+    
+    if (!isInstagramUrl && !isYoutubeShorts) {
+      setError('Please enter a valid Instagram Reel or YouTube Shorts URL');
+      return;
+    }
+    
+    // Don't allow submission during cooldown
+    if (cooldownActive) {
+      setError(`Please wait ${cooldownRemaining} seconds before posting again`);
+      return;
+    }
+    
+    setError(null);
+    setIsSubmitting(true);
+    setJobStatus(null);
+    
+    try {
+      const response = await axios.post('http://localhost:5000/api/repost', {
+        videoUrl: url,
+        caption,
+        hashtags,
+        source: isYoutubeShorts ? 'youtube' : 'instagram'
+      });
+      
+      const data = response.data;
+      
+      if (data.success) {
+        setJobId(data.jobId);
+      } else {
+        setError(data.error || 'Failed to start repost job');
+        setIsSubmitting(false);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Server error. Please try again later.');
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Get the active step based on job status
+  const getActiveStep = () => {
+    if (!jobStatus || !jobStatus.steps) return -1;
+    
+    // Check each step in sequence to ensure proper progression
+    if (jobStatus.steps.includes('upload_completed')) {
+      return 3; // All steps complete
+    }
+    
+    if (jobStatus.steps.includes('upload_started')) {
+      return 2; // Working on upload
+    }
+    
+    if (jobStatus.steps.includes('login_completed')) {
+      return 2; // Login complete, ready for upload
+    }
+    
+    if (jobStatus.steps.includes('login_started')) {
+      return 1; // Working on login
+    }
+    
+    if (jobStatus.steps.includes('download_completed')) {
+      return 1; // Download complete, ready for login 
+    }
+    
+    if (jobStatus.steps.includes('download_started')) {
+      return 0; // Working on download
+    }
+    
+    return -1; // Not started yet
+  };
+  
+  const handleCloseSnackbar = () => {
+    setOpenSnackbar(false);
+  };
+
+  return (
+    <Container maxWidth="md" className="App">
+      <Box component="header" py={4} textAlign="center">
+        <Box display="flex" justifyContent="center" alignItems="center" mb={1}>
+          <InstagramIcon sx={{ fontSize: 40, color: '#1a73e8', mr: 2 }} />
+          <Typography variant="h3" component="h1" fontWeight="400" color="primary">
+            Instagram Repost
+          </Typography>
+        </Box>
+        <Typography variant="h6" color="text.secondary" fontWeight="normal">
+          Easily repost Instagram reels to your account
+        </Typography>
+      </Box>
+      
+      <Box component="main" mb={4}>
+        <Paper 
+          elevation={2} 
+          sx={{ 
+            p: 4, 
+            borderRadius: 3,
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
+            }
+          }}
+        >
+          <Box component="form" onSubmit={handleSubmit} mb={4}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                label="Instagram Reel URL"
+                placeholder="https://www.instagram.com/reel/..."
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                disabled={isSubmitting}
+                sx={{ mr: 2 }}
+                InputProps={{
+                  sx: { borderRadius: '24px 0 0 24px' }
+                }}
+              />
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                size="large"
+                disabled={isSubmitting || !url || cooldownActive}
+                sx={{ 
+                  height: '56px',
+                  borderRadius: '0 24px 24px 0',
+                  textTransform: 'none',
+                  px: 4
+                }}
+                startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
+              >
+                {isSubmitting ? 'Processing...' : cooldownActive ? `Wait ${cooldownRemaining}s` : 'Repost'}
+              </Button>
+            </Box>
+            
+            {/* Caption and Hashtags fields */}
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, mt: 3 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                label="Caption"
+                placeholder="Thanks for watching, hit follow for more! 🙏"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                disabled={isSubmitting}
+                multiline
+                rows={3}
+                sx={{ flexBasis: '50%' }}
+              />
+              <TextField
+                fullWidth
+                variant="outlined"
+                label="Hashtags"
+                placeholder="#reels #instareels #trending #viral #foryou #fyp #repost"
+                value={hashtags}
+                onChange={(e) => setHashtags(e.target.value)}
+                disabled={isSubmitting}
+                multiline
+                rows={3}
+                sx={{ flexBasis: '50%' }}
+              />
+            </Box>
+            
+            {error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+              </Alert>
+            )}
+            
+            {cooldownActive && !isSubmitting && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">
+                    Cooldown period active to prevent Instagram from flagging automated posts.
+                  </Typography>
+                  <Typography variant="body2" fontWeight="bold" sx={{ ml: 2 }}>
+                    {cooldownRemaining}s
+                  </Typography>
+                </Box>
+                <Box sx={{ width: '100%', mt: 1 }}>
+                  <div style={{ 
+                    height: '4px', 
+                    width: `${(cooldownRemaining / 60) * 100}%`, 
+                    backgroundColor: '#1a73e8',
+                    borderRadius: '2px',
+                    transition: 'width 1s linear'
+                  }} />
+                </Box>
+              </Alert>
+            )}
+          </Box>
+          
+          {jobStatus && (
+            <Box mt={4}>
+              <Typography variant="h5" component="h2" mb={3} fontWeight="normal">
+                Repost Status
+              </Typography>
+              
+              {/* Simple status display */}
+              <Box 
+                sx={{ 
+                  p: 3, 
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 2,
+                  bgcolor: 'rgba(0, 0, 0, 0.02)',
+                  mb: 3
+                }}
+              >
+                <Typography variant="body1" sx={{ mb: 2, fontWeight: 500 }}>
+                  Current Status: {
+                    jobStatus.steps?.includes('upload_completed') ? 'Upload completed' :
+                    jobStatus.steps?.includes('upload_started') ? 'Uploading to Instagram...' :
+                    jobStatus.steps?.includes('login_completed') ? 'Logged in, preparing upload...' :
+                    jobStatus.steps?.includes('login_started') ? 'Logging into Instagram...' :
+                    jobStatus.steps?.includes('download_completed') ? 'Download completed, logging in...' :
+                    jobStatus.steps?.includes('download_started') ? 'Downloading reel...' :
+                    'Processing...'
+                  }
+                </Typography>
+                
+                {!jobStatus.completed && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      Please wait while we process your request...
+                    </Typography>
+                  </Box>
+                )}
+                
+                {/* Simple progress bar */}
+                <Box sx={{ 
+                  width: '100%', 
+                  bgcolor: 'rgba(0, 0, 0, 0.1)', 
+                  borderRadius: 1, 
+                  mt: 2, 
+                  overflow: 'hidden' 
+                }}>
+                  <Box sx={{
+                    width: (() => {
+                      if (jobStatus.steps?.includes('upload_completed')) return '100%';
+                      if (jobStatus.steps?.includes('upload_started')) return '85%';
+                      if (jobStatus.steps?.includes('login_completed')) return '65%';
+                      if (jobStatus.steps?.includes('login_started')) return '50%';
+                      if (jobStatus.steps?.includes('download_completed')) return '35%';
+                      if (jobStatus.steps?.includes('download_started')) return '15%';
+                      return '5%';
+                    })(),
+                    bgcolor: '#1a73e8',
+                    height: 8,
+                    transition: 'width 0.8s ease'
+                  }} />
+                </Box>
+                        isPending={!jobStatus.steps?.includes('upload_started') || 
+                                  (jobStatus.steps?.includes('login_started') && !jobStatus.steps?.includes('login_completed'))}
+                        pulseColor="#34A853" /* Google green */
+                      />
+                    </Box>
+                  </Fade>
+                </Box>
+              </Box>
+              
+              {jobStatus.completed && jobStatus.steps?.includes('upload_completed') ? (
+                <Zoom in={true} timeout={800}>
+                  <Box mt={3}>
+                    {jobStatus.success ? (
+                      <Alert 
+                        severity="success" 
+                        icon={<CheckCircleIcon fontSize="inherit" style={{ animation: `${bounce} 1s ease` }} />}
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          fontSize: '1.1rem',
+                          py: 3,
+                          px: 4,
+                          borderRadius: 3,
+                          boxShadow: '0 6px 20px rgba(52, 168, 83, 0.25)',
+                          background: 'linear-gradient(120deg, #e6f4ea, #ffffff)',
+                          border: '1px solid rgba(52, 168, 83, 0.2)',
+                          overflow: 'hidden',
+                          position: 'relative',
+                          '&::after': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'linear-gradient(120deg, transparent, rgba(255,255,255,0.6), transparent)',
+                            transform: 'translateX(-100%)',
+                            animation: 'shimmer 2s infinite',
+                          },
+                          '@keyframes shimmer': {
+                            '100%': {
+                              transform: 'translateX(100%)',
+                            },
+                          },
+                        }}
+                      >
+                        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                          Reel uploaded successfully! 🎉
+                        </Typography>
+                      </Alert>
+                    ) : (
+                      <Alert 
+                        severity="error" 
+                        sx={{ 
+                          mt: 2,
+                          borderRadius: 3,
+                          boxShadow: '0 6px 20px rgba(211, 47, 47, 0.25)',
+                          py: 2,
+                          px: 3
+                        }}
+                      >
+                        <Typography variant="body1" fontWeight={500}>
+                          Error: {jobStatus.error}
+                        </Typography>
+                      </Alert>
+                    )}
+                  </Box>
+                </Zoom>
+              ) : jobStatus.error ? (
+                <Zoom in={true} timeout={500}>
+                  <Box mt={3}>
+                    <Alert 
+                      severity="error" 
+                      sx={{ 
+                        mt: 2,
+                        borderRadius: 3,
+                        boxShadow: '0 6px 20px rgba(211, 47, 47, 0.25)',
+                        py: 2,
+                        px: 3
+                      }}
+                    >
+                      <Typography variant="body1" fontWeight={500}>
+                        Error: {jobStatus.error}
+                      </Typography>
+                    </Alert>
+                  </Box>
+                </Zoom>
+              ) : (
+                <Box mt={3} textAlign="center" sx={{ overflow: 'hidden' }}>
+                  <Typography 
+                    variant="body1" 
+                    color="text.secondary"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 1
+                    }}
+                  >
+                    Please wait while we process your request
+                    <Box component="span" sx={{ 
+                      display: 'inline-block', 
+                      animation: 'ellipsis-animation 1.5s infinite' 
+                    }}>
+                      ...
+                    </Box>
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Paper>
+      </Box>
+      
+      <Box component="footer" textAlign="center" py={2} mb={2}>
+        <Typography variant="body2" color="text.secondary">
+          &copy; {new Date().getFullYear()} Instagram Repost Tool
+        </Typography>
+      </Box>
+      
+      <Snackbar 
+        open={openSnackbar} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
+          Your Instagram Reel has been successfully reposted!
+        </Alert>
+      </Snackbar>
+    </Container>
+  );
+}
+
+export default App;

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instagram OAuth Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .container {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      color: #333;
+    }
+    button {
+      background: #0095f6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #1877f2;
+    }
+    pre {
+      background: #f1f1f1;
+      padding: 10px;
+      border-radius: 4px;
+      overflow: auto;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Instagram OAuth Test</h1>
+  
+  <div class="container">
+    <h2>1. Test Authentication</h2>
+    <p>Click the button below to start the Instagram OAuth flow:</p>
+    <button id="login-button">Login with Instagram</button>
+    <div id="auth-result" style="margin-top: 20px;"></div>
+  </div>
+  
+  <div class="container">
+    <h2>2. Check Current Authentication Status</h2>
+    <p>Check if you're currently authenticated with Instagram:</p>
+    <button id="status-button">Check Auth Status</button>
+    <div id="status-result" style="margin-top: 20px;"></div>
+  </div>
+
+  <div class="container">
+    <h2>3. Test Webhook Verification</h2>
+    <p>Test if the webhook verification endpoint works correctly:</p>
+    <button id="webhook-button">Test Webhook</button>
+    <div id="webhook-result" style="margin-top: 20px;"></div>
+  </div>
+
+  <script>
+    // Configuration
+    const apiUrl = 'https://insta-report-system-4zxlqolkg.vercel.app';
+    const frontendUrl = 'https://insta-report-system-970xqhbou.vercel.app';
+    const clientId = '1842291649888953';
+    
+    // Instagram login
+    document.getElementById('login-button').addEventListener('click', function() {
+      const redirectUri = encodeURIComponent(`${frontendUrl}/auth/callback`);
+      const scope = encodeURIComponent('user_profile,user_media');
+      
+      // Construct the Instagram authorization URL
+      const instagramAuthUrl = `https://api.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
+      
+      // Redirect to Instagram login
+      window.location.href = instagramAuthUrl;
+    });
+    
+    // Check auth status
+    document.getElementById('status-button').addEventListener('click', async function() {
+      const statusResult = document.getElementById('status-result');
+      statusResult.innerHTML = 'Checking authentication status...';
+      
+      try {
+        const response = await fetch(`${apiUrl}/api/auth/status`);
+        const data = await response.json();
+        
+        if (data.authenticated) {
+          statusResult.innerHTML = `
+            <p class="success">✓ Authenticated</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        } else {
+          statusResult.innerHTML = `
+            <p class="error">✗ Not authenticated</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        }
+      } catch (error) {
+        statusResult.innerHTML = `
+          <p class="error">✗ Error checking authentication status</p>
+          <pre>${error.message}</pre>
+        `;
+      }
+    });
+    
+    // Test webhook
+    document.getElementById('webhook-button').addEventListener('click', async function() {
+      const webhookResult = document.getElementById('webhook-result');
+      webhookResult.innerHTML = 'Testing webhook verification...';
+      
+      try {
+        // First do a simple test to check accessibility
+        const testResponse = await fetch(`${apiUrl}/webhook?test=true`);
+        const testData = await testResponse.json();
+        
+        // Then do a proper webhook verification test
+        const verifyToken = 'insta-repost-verify-token-12345';
+        const challenge = 'test_challenge_123';
+        const verifyResponse = await fetch(`${apiUrl}/webhook?hub.mode=subscribe&hub.verify_token=${verifyToken}&hub.challenge=${challenge}`);
+        const verifyData = await verifyResponse.text();
+        
+        webhookResult.innerHTML = `
+          <p class="success">✓ Webhook endpoint is accessible</p>
+          <h4>Test Response:</h4>
+          <pre>${JSON.stringify(testData, null, 2)}</pre>
+          <h4>Verification Response:</h4>
+          <pre>${verifyData}</pre>
+          <p>Verification ${verifyData === challenge ? 'successful ✓' : 'failed ✗'}</p>
+        `;
+      } catch (error) {
+        webhookResult.innerHTML = `
+          <p class="error">✗ Error testing webhook</p>
+          <pre>${error.message}</pre>
+        `;
+      }
+    });
+    
+    // Parse URL parameters
+    function getUrlParameters() {
+      const params = {};
+      const queryString = window.location.search;
+      const urlParams = new URLSearchParams(queryString);
+      
+      for (const [key, value] of urlParams.entries()) {
+        params[key] = value;
+      }
+      
+      return params;
+    }
+    
+    // Check for code param in URL (redirect from Instagram OAuth)
+    const params = getUrlParameters();
+    if (params.code) {
+      const authResult = document.getElementById('auth-result');
+      authResult.innerHTML = `<p>Auth code received: ${params.code.substring(0, 10)}...</p>
+                             <p>Verifying with server...</p>`;
+      
+      // Exchange code for token
+      fetch(`${apiUrl}/api/auth/instagram/callback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ code: params.code })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          authResult.innerHTML = `
+            <p class="success">✓ Authentication successful!</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        } else {
+          authResult.innerHTML = `
+            <p class="error">✗ Authentication failed</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        }
+      })
+      .catch(error => {
+        authResult.innerHTML = `
+          <p class="error">✗ Error exchanging code for token</p>
+          <pre>${error.message}</pre>
+        `;
+      });
+    }
+  </script>
+</body>
+</html>

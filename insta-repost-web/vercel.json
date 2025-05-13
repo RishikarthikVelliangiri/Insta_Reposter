@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "devCommand": "npm run start",
+  "outputDirectory": "build",
+  "framework": "create-react-app",
+  "public": true,
+  "rewrites": [
+    { "source": "/privacy-policy", "destination": "/privacy-policy.html" },
+    { "source": "/terms-of-service", "destination": "/terms-of-service.html" },
+    { "source": "/pp", "destination": "/pp.html" },
+    { "source": "/tos", "destination": "/tos.html" },
+    { "source": "/oauth-test", "destination": "/oauth-test.html" },
+    { "source": "/legal", "destination": "/legal.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "env": {
+    "CI": "false",
+    "REACT_APP_API_URL": "https://insta-report-system-4zxlqolkg.vercel.app",
+    "REACT_APP_REDIRECT_URI": "https://insta-report-system-970xqhbou.vercel.app/auth/callback",
+    "REACT_APP_INSTAGRAM_APP_ID": "1842291649888953"
+  }
+}

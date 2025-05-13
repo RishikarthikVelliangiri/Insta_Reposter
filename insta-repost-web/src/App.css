@@ -1,0 +1,73 @@
+.App {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  min-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background-color: transparent;
+}
+
+/* Loading progress animation */
+@keyframes moveGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.progress-animate {
+  background-size: 200% 200% !important;
+  animation: moveGradient 3s ease infinite !important;
+}
+
+/* Step transition animations */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.step-item-enter {
+  opacity: 0;
+  transform: scale(0.85);
+}
+
+.step-item-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: all 500ms ease;
+}
+
+/* Add a subtle hover effect to UI elements */
+.interactive-element {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.interactive-element:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+}
+
+/* Animation for completion */
+@keyframes celebrate {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.celebrate {
+  animation: celebrate 0.6s ease-in-out;
+}
+
+/* Animate the progress steps with a delay */
+.animate-step {
+  animation: fadeInScale 0.5s ease forwards;
+}
+
+.animate-step-1 { animation-delay: 0ms; }
+.animate-step-2 { animation-delay: 200ms; }
+.animate-step-3 { animation-delay: 400ms; }
