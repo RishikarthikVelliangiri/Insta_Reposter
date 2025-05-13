@@ -20,7 +20,7 @@ const WEBHOOK_VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'insta-repost-v
 // Middleware
 app.use(cors({
   origin: [
-    'https://insta-report-system-970xqhbou.vercel.app',
+    'https://insta-reposter32.vercel.app',
     process.env.FRONTEND_URL || 'http://localhost:3000'
   ],
   credentials: true
@@ -29,71 +29,54 @@ app.use(bodyParser.json());
 
 // Instagram webhook verification endpoint
 app.get('/webhook', (req, res) => {
-    try {
-        // If there's a test parameter, return a simple success message for direct testing
-        if (req.query.test === 'true') {
-            return res.status(200).send({
-                success: true,
-                message: 'Webhook endpoint is accessible',
-                environment: process.env.NODE_ENV || 'development',
-                verifyToken: WEBHOOK_VERIFY_TOKEN ? 'Configured' : 'Not configured'
-            });
-        }
-        
-        // Parse params from the webhook verification request
-        const mode = req.query['hub.mode'];
-        const token = req.query['hub.verify_token'];
-        const challenge = req.query['hub.challenge'];
-        
-        console.log('Webhook verification request received:');
-        console.log('- Mode:', mode);
-        console.log('- Token:', token);
-        console.log('- Challenge:', challenge ? 'Present' : 'Missing');
-        console.log('- Expected token:', WEBHOOK_VERIFY_TOKEN);
-        console.log('- Full query params:', JSON.stringify(req.query));
-        console.log('- Headers:', JSON.stringify(req.headers));
-        
-        // For debugging purposes, even if parameters are missing, accept the request
-        // This helps diagnose how Meta is calling your webhook
-        if (!mode || !token || !challenge) {
-            console.log('WEBHOOK DEBUG: Some parameters are missing but accepting request');
-            return res.status(200).send(challenge || 'Challenge parameter is missing');
-        }
-        
-        // Check if a token and mode were sent
+    // If there's a test parameter, return a simple success message for direct testing
+    if (req.query.test === 'true') {
+        return res.status(200).send({
+            success: true,
+            message: 'Webhook endpoint is accessible',
+            environment: process.env.NODE_ENV || 'development',
+            verifyToken: WEBHOOK_VERIFY_TOKEN ? 'Configured' : 'Not configured'
+        });
+    }
+    
+    // Parse params from the webhook verification request
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    
+    console.log('Webhook verification request received:');
+    console.log('- Mode:', mode);
+    console.log('- Token:', token);
+    console.log('- Challenge:', challenge);
+    console.log('- Expected token:', WEBHOOK_VERIFY_TOKEN);
+    
+    // Check if a token and mode were sent
+    if (mode && token) {
+        // Check the mode and token sent are correct
         if (mode === 'subscribe' && token === WEBHOOK_VERIFY_TOKEN) {
             // Respond with 200 OK and challenge token from the request
             console.log('WEBHOOK_VERIFIED: Token matches expected value');
-            return res.status(200).send(challenge);
+            res.status(200).send(challenge);
         } else {
             // Respond with '403 Forbidden' if verify tokens do not match
             console.log('VERIFICATION_FAILED: Token does not match expected value');
-            return res.sendStatus(403);
+            res.sendStatus(403);
         }
-    } catch (error) {
-        console.error('Webhook verification error:', error);
-        return res.status(500).send('Webhook verification error: ' + error.message);
+    } else {
+        // Respond with '400 Bad Request' if required parameters are missing
+        console.log('MISSING_PARAMETERS: Mode or token is missing');
+        res.sendStatus(400);
     }
 });
 
-// Special webhook verification endpoint that is more permissive
-app.get('/webhook-meta', (req, res) => {
-    console.log('Simplified webhook verification received:', req.query);
-    
-    // Get verify token from query parameter or header
-    const verifyToken = req.query['hub.verify_token'] || req.headers['x-verify-token'];
-    const challenge = req.query['hub.challenge'] || 'challenge-accepted';
-    
-    // Always accept the verification and return the challenge
-    console.log(`META WEBHOOK: Responding with challenge: ${challenge}`);
-    return res.status(200).send(challenge);
-    } else {
-        return res.status(200).json({
-            status: 'success',
-            message: 'Webhook endpoint is accessible',
-            timestamp: new Date().toISOString()
-        });
-    }
+// Also add a simple route for testing the backend deployment
+app.get('/api/test', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'Backend server is running',
+        environment: process.env.NODE_ENV || 'development',
+        time: new Date().toISOString()
+    });
 });
 
 // Additional test endpoint to verify webhook is accessible

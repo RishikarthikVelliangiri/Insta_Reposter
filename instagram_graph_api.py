@@ -12,7 +12,7 @@ from urllib.parse import urlencode
 # Configuration - Values from Meta Developer Dashboard
 APP_ID = "1842291649888953"
 APP_SECRET = "4315cb405ae229639ec08"
-REDIRECT_URI = "https://insta-report-system-gpu1ik6ku.vercel.app/auth/callback"
+REDIRECT_URI = "https://insta-reposter32.vercel.app/auth/callback"
 GRAPH_API_VERSION = "v18.0"  # Update to the latest version
 TOKEN_FILE = "instagram_token.json"
 

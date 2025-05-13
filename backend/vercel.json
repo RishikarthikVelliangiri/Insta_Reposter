@@ -7,12 +7,11 @@
     { "src": "/webhook(.*)", "dest": "server.js" },
     { "src": "/api/(.*)", "dest": "server.js" },
     { "src": "/auth/(.*)", "dest": "server.js" }
-  ],
-  "env": {
+  ],  "env": {
     "INSTAGRAM_CLIENT_ID": "1842291649888953",
     "INSTAGRAM_CLIENT_SECRET": "4315cb405ae229639ec08",
-    "INSTAGRAM_REDIRECT_URI": "https://insta-report-system-970xqhbou.vercel.app/auth/callback",
+    "INSTAGRAM_REDIRECT_URI": "https://insta-reposter32.vercel.app/auth/callback",
     "WEBHOOK_VERIFY_TOKEN": "insta-repost-verify-token-12345",
-    "FRONTEND_URL": "https://insta-report-system-970xqhbou.vercel.app"
+    "FRONTEND_URL": "https://insta-reposter32.vercel.app"
   }
 }

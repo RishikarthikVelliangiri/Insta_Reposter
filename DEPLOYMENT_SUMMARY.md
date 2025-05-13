@@ -7,8 +7,8 @@ We've updated the frontend configuration to use environment variables for all AP
 
 1. Updated `.env` file to use the deployed backend URL:
    ```
-   REACT_APP_API_URL=https://insta-report-system-4zxlqolkg.vercel.app
-   REACT_APP_REDIRECT_URI=https://insta-report-system-970xqhbou.vercel.app/auth/callback
+   REACT_APP_API_URL=https://insta-reposter32.vercel.app
+   REACT_APP_REDIRECT_URI=https://insta-reposter32.vercel.app/auth/callback
    REACT_APP_INSTAGRAM_APP_ID=1842291649888953
    ```
 
@@ -16,8 +16,8 @@ We've updated the frontend configuration to use environment variables for all AP
    ```json
    "env": {
      "CI": "false",
-     "REACT_APP_API_URL": "https://insta-report-system-4zxlqolkg.vercel.app",
-     "REACT_APP_REDIRECT_URI": "https://insta-report-system-970xqhbou.vercel.app/auth/callback",
+     "REACT_APP_API_URL": "https://insta-reposter32.vercel.app",
+     "REACT_APP_REDIRECT_URI": "https://insta-reposter32.vercel.app/auth/callback",
      "REACT_APP_INSTAGRAM_APP_ID": "1842291649888953"
    }
    ```
@@ -27,8 +27,7 @@ We've updated the frontend configuration to use environment variables for all AP
    ```javascript
    app.use(cors({
      origin: [
-       'https://insta-report-system-970xqhbou.vercel.app',
-       'https://insta-report-system-l1lc8sqx5.vercel.app',
+       'https://insta-reposter32.vercel.app',
        process.env.FRONTEND_URL || 'http://localhost:3000'
      ],
      credentials: true
@@ -40,9 +39,9 @@ We've updated the frontend configuration to use environment variables for all AP
    "env": {
      "INSTAGRAM_CLIENT_ID": "1842291649888953",
      "INSTAGRAM_CLIENT_SECRET": "4315cb405ae229639ec08",
-     "INSTAGRAM_REDIRECT_URI": "https://insta-report-system-970xqhbou.vercel.app/auth/callback",
+     "INSTAGRAM_REDIRECT_URI": "https://insta-reposter32.vercel.app/auth/callback",
      "WEBHOOK_VERIFY_TOKEN": "insta-repost-verify-token-12345",
-     "FRONTEND_URL": "https://insta-report-system-970xqhbou.vercel.app"
+     "FRONTEND_URL": "https://insta-reposter32.vercel.app"
    }
    ```
 
@@ -153,13 +152,9 @@ We've created a comprehensive test page (`oauth-test.html`) to verify all aspect
 
 ## 5. Deployment URLs
 
-1. Frontend: 
-   - https://insta-report-system-970xqhbou.vercel.app (previous)
-   - https://insta-report-system-l1lc8sqx5.vercel.app (latest)
+1. Current Deployment: 
+   - https://insta-reposter32.vercel.app
 
-2. Backend:
-   - https://insta-report-system-4zxlqolkg.vercel.app
-
-3. Useful Test Endpoints:
-   - OAuth Test: https://insta-report-system-l1lc8sqx5.vercel.app/oauth-test.html
-   - Webhook Test: https://insta-report-system-4zxlqolkg.vercel.app/webhook?test=true
+2. Useful Test Endpoints:
+   - OAuth Test: https://insta-reposter32.vercel.app/oauth-test.html
+   - Webhook Test: https://insta-reposter32.vercel.app/webhook?test=true

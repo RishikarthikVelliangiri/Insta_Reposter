@@ -16,8 +16,8 @@
   ],
   "env": {
     "CI": "false",
-    "REACT_APP_API_URL": "https://insta-report-system-4zxlqolkg.vercel.app",
-    "REACT_APP_REDIRECT_URI": "https://insta-report-system-970xqhbou.vercel.app/auth/callback",
+    "REACT_APP_API_URL": "https://insta-reposter32.vercel.app",
+    "REACT_APP_REDIRECT_URI": "https://insta-reposter32.vercel.app/auth/callback",
     "REACT_APP_INSTAGRAM_APP_ID": "1842291649888953"
   }
 }
