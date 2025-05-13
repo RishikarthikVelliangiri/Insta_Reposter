@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "server.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/webhook(.*)", "dest": "server.js" },
+    { "src": "/api/(.*)", "dest": "server.js" },
+    { "src": "/auth/(.*)", "dest": "server.js" }
+  ],
+  "env": {
+    "INSTAGRAM_CLIENT_ID": "1842291649888953",
+    "INSTAGRAM_CLIENT_SECRET": "4315cb405ae229639ec08",
+    "INSTAGRAM_REDIRECT_URI": "https://insta-report-system-970xqhbou.vercel.app/auth/callback",
+    "WEBHOOK_VERIFY_TOKEN": "insta-repost-verify-token-12345",
+    "FRONTEND_URL": "https://insta-report-system-970xqhbou.vercel.app"
+  }
+}

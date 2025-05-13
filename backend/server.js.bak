@@ -1,0 +1,252 @@
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const { spawn } = require('child_process');
+const path = require('path');
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+
+// Status tracking for repost jobs
+const jobStatus = {};
+
+// API endpoint to handle repost requests
+app.post('/api/repost', (req, res) => {
+    const { videoUrl, caption, hashtags, source } = req.body;
+    
+    if (!videoUrl) {
+        return res.status(400).json({ success: false, error: 'Video URL is required' });
+    }
+    
+    // Generate a unique job ID
+    const jobId = Date.now().toString();
+    
+    // Set initial status
+    jobStatus[jobId] = {
+        status: 'processing',
+        steps: [],
+        log: [],
+        completed: false,
+        success: false,
+        error: null,
+        source: source || 'instagram'
+    };
+    
+    // Send back the job ID immediately
+    res.json({ success: true, jobId });
+    
+    // Prepare arguments for the Python script
+    const scriptArgs = [
+        path.join(__dirname, '..', 'simple_repost_api.py'),
+        videoUrl
+    ];
+    
+    // Add source parameter
+    if (source) scriptArgs.push('--source', source);
+    
+    // Add caption and hashtags if provided
+    if (caption) scriptArgs.push('--caption', caption);
+    if (hashtags) scriptArgs.push('--hashtags', hashtags);
+      // Execute the Python script with the -u flag to ensure unbuffered output
+    const pythonProcess = spawn('python', ['-u', ...scriptArgs.slice(1)]);
+    
+    // Set a timeout to ensure process completes even with output buffering
+    let outputBuffer = '';
+    
+    // Collect data from stdout
+    pythonProcess.stdout.on('data', (data) => {
+        const message = data.toString().trim();
+        outputBuffer += message + '\n';
+        console.log(`Python stdout: ${message}`);
+        
+        // Update job status with logs
+        jobStatus[jobId].log.push(message);        
+        
+        // Check for explicit step markers first
+        if (message.includes('STEP_MARKER:')) {
+            const step = message.split('STEP_MARKER:')[1].trim().toLowerCase();
+            console.log(`Step marker detected: ${step}`);
+            
+            switch(step) {
+                case 'download_started':
+                    jobStatus[jobId].steps.push('download_started');
+                    jobStatus[jobId].currentStep = 'download';
+                    break;
+                case 'download_completed':
+                    jobStatus[jobId].steps.push('download_completed');
+                    break;
+                case 'login_started':
+                    jobStatus[jobId].steps.push('login_started');
+                    jobStatus[jobId].currentStep = 'login';
+                    break;
+                case 'login_completed':
+                    jobStatus[jobId].steps.push('login_completed');
+                    break;
+                case 'upload_started':
+                    jobStatus[jobId].steps.push('upload_started');
+                    jobStatus[jobId].currentStep = 'upload';
+                    break;
+                case 'upload_completed':
+                    jobStatus[jobId].steps.push('upload_completed');
+                    jobStatus[jobId].completed = true;
+                    jobStatus[jobId].success = true;
+                    break;
+                case 'upload_failed':
+                    jobStatus[jobId].error = "Upload failed";
+                    jobStatus[jobId].completed = true;
+                    jobStatus[jobId].success = false;
+                    break;
+            }
+        }
+        // Fall back to checking for keyword indicators
+        else if (message.includes('Downloading reel from:')) {
+            if (!jobStatus[jobId].steps.includes('download_started')) {
+                jobStatus[jobId].steps.push('download_started');
+                jobStatus[jobId].currentStep = 'download';
+            }
+        } else if (message.includes('Downloaded video:')) {
+            if (!jobStatus[jobId].steps.includes('download_completed')) {
+                jobStatus[jobId].steps.push('download_completed');
+            }
+        } else if (message.includes('Logging into Instagram')) {
+            if (!jobStatus[jobId].steps.includes('login_started')) {
+                jobStatus[jobId].steps.push('login_started');
+                jobStatus[jobId].currentStep = 'login';
+            }
+        } else if (message.includes('Logged in successfully')) {
+            if (!jobStatus[jobId].steps.includes('login_completed')) {
+                jobStatus[jobId].steps.push('login_completed');
+            }
+        } else if (message.includes('Uploading reel to Instagram')) {
+            if (!jobStatus[jobId].steps.includes('upload_started')) {
+                jobStatus[jobId].steps.push('upload_started');
+                jobStatus[jobId].currentStep = 'upload';
+            }
+        } else if (message.includes('STEP_MARKER: UPLOAD_COMPLETED') || 
+                 message.includes('Reel uploaded successfully') || 
+                 message.includes('Video uploaded successfully') ||
+                 message.includes('Upload successful') ||
+                 message.includes('Upload completed successfully')) {
+            if (!jobStatus[jobId].steps.includes('upload_completed')) {
+                console.log('Upload completed detected in log output: ' + message);
+                jobStatus[jobId].steps.push('upload_completed');
+                jobStatus[jobId].completed = true;
+                jobStatus[jobId].success = true;
+            }
+        } else if (message.includes('Error:') || 
+                 message.includes('Failed to') || 
+                 message.includes('STEP_MARKER: UPLOAD_FAILED') ||
+                 message.includes('Upload failed')) {
+            // Handle errors
+            console.log('Error detected in log output: ' + message);
+            jobStatus[jobId].error = message;
+            if (!jobStatus[jobId].completed) {
+                jobStatus[jobId].completed = true;
+                jobStatus[jobId].success = false;
+            }
+        } else if (message.includes('FINAL_STATUS:')) {
+            // Check for final status marker
+            const status = message.split('FINAL_STATUS:')[1].trim().toLowerCase();
+            if (status === 'success') {
+                console.log('Final success status detected');
+                if (!jobStatus[jobId].steps.includes('upload_completed')) {
+                    jobStatus[jobId].steps.push('upload_completed');
+                }
+                jobStatus[jobId].completed = true;
+                jobStatus[jobId].success = true;
+            } else if (status === 'failed') {
+                console.log('Final failed status detected');
+                jobStatus[jobId].completed = true;
+                jobStatus[jobId].success = false;
+                if (!jobStatus[jobId].error) {
+                    jobStatus[jobId].error = 'Process reported failure';
+                }
+            }
+        }
+    });
+    
+    // Handle errors from the Python process
+    pythonProcess.stderr.on('data', (data) => {
+        const errorMsg = data.toString().trim();
+        console.error(`Python stderr: ${errorMsg}`);
+        
+        jobStatus[jobId].log.push(`ERROR: ${errorMsg}`);
+        jobStatus[jobId].error = errorMsg;
+    });
+    
+    // Handle process completion
+    pythonProcess.on('close', (code) => {
+        console.log(`Python process exited with code ${code}`);
+        
+        // Add a small delay before processing completion to ensure all stdout has been processed
+        setTimeout(() => {
+            // Only mark as completed if we haven't already done so in the stdout handler
+            if (!jobStatus[jobId].completed) {
+                jobStatus[jobId].completed = true;
+                
+                // Check if we have upload_completed in the steps list
+                const hasUploadCompleted = jobStatus[jobId].steps.includes('upload_completed');
+                
+                if (code !== 0) {
+                    jobStatus[jobId].error = `Process exited with code ${code}`;
+                    jobStatus[jobId].success = false;
+                } else if (!jobStatus[jobId].error) {
+                    // For success code (0), look for success markers in the logs if no explicit upload_completed step
+                    if (!hasUploadCompleted) {
+                        const logs = jobStatus[jobId].log.join('\n').toLowerCase();
+                        if ((logs.includes('upload') && 
+                             (logs.includes('successful') || logs.includes('completed') || logs.includes('success'))) ||
+                             logs.includes('final_status: success')) {
+                            
+                            console.log('Success indicators found in logs, marking job as successful');
+                            // Add upload_completed step
+                            jobStatus[jobId].steps.push('upload_completed');
+                            jobStatus[jobId].success = true;
+                        } else {
+                            // Try to determine where we got stuck
+                            if (jobStatus[jobId].steps.includes('upload_started')) {
+                                jobStatus[jobId].error = "Upload process started but didn't complete";
+                            } else if (jobStatus[jobId].steps.includes('login_completed')) {
+                                jobStatus[jobId].error = "Login successful but upload didn't start";
+                            } else if (jobStatus[jobId].steps.includes('login_started')) {
+                                jobStatus[jobId].error = "Login process started but didn't complete";
+                            } else if (jobStatus[jobId].steps.includes('download_completed')) {
+                                jobStatus[jobId].error = "Download completed but login didn't start";
+                            } else {
+                                jobStatus[jobId].error = "Process completed without expected steps";
+                            }
+                        }
+                    } else {
+                        // We already have upload_completed in steps
+                        jobStatus[jobId].success = true;
+                    }
+                }
+            }
+        }, 100); // 100ms delay to ensure all stdout is processed
+    });
+});
+
+// API endpoint to check job status
+app.get('/api/status/:jobId', (req, res) => {
+    const { jobId } = req.params;
+    
+    if (!jobStatus[jobId]) {
+        return res.status(404).json({ 
+            success: false, 
+            error: 'Job not found'
+        });
+    }
+    
+    res.json({
+        success: true,
+        jobStatus: jobStatus[jobId]
+    });
+});
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});

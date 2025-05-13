@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "buildCommand": "cd insta-repost-web && npm install && npm run build",
+  "outputDirectory": "insta-repost-web/build",
+  "rewrites": [
+    { 
+      "source": "/api/:path*", 
+      "destination": "/backend/server.js" 
+    },
+    { 
+      "source": "/webhook", 
+      "destination": "/backend/server.js" 
+    },
+    { 
+      "source": "/auth/:path*", 
+      "destination": "/backend/server.js" 
+    }
+  ],"env": {
+    "INSTAGRAM_CLIENT_ID": "1842291649888953",
+    "INSTAGRAM_CLIENT_SECRET": "4315cb405ae229639ec08",
+    "INSTAGRAM_REDIRECT_URI": "https://insta-report-system-gpu1ik6ku.vercel.app/auth/callback",
+    "WEBHOOK_VERIFY_TOKEN": "insta-repost-verify-token-12345",
+    "CI": "false",
+    "DISABLE_ESLINT_PLUGIN": "true", 
+    "ESLINT_NO_DEV_ERRORS": "true"
+  }
+}
